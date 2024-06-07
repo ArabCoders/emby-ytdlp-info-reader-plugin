@@ -192,23 +192,53 @@ namespace YTINFOReader.Helpers
         /// <returns></returns>
         public static MetadataResult<Episode> YTDLJsonToEpisode(YTDLData json)
         {
+            Logger?.Debug($"{json.File_path?.FullName} Processing: '{json}'.");
+
             var item = new Episode();
             var result = new MetadataResult<Episode>
             {
                 HasMetadata = true,
                 Item = item
             };
-            result.Item.Name = json.Title.Trim();
-            result.Item.Overview = json.Description.Trim();
-            var date = new DateTime(1970, 1, 1);
-            try
+
+            if (null == json.Upload_date)
             {
-                date = DateTime.ParseExact(json.Upload_date, "yyyyMMdd", null);
+                Logger?.Warn($"{json.File_path?.FullName}: No upload date found for '{json.Id}' - '{json.Title}'. This most likely indicates the info.json file is corrupted. or was downloading when the video was deleted.");
             }
-            catch { }
+
+            var date = new DateTime(1970, 1, 1);
+            if (null != json.Upload_date || null != json.Epoch)
+            {
+                try
+                {
+                    if (null != json.Upload_date)
+                    {
+                        date = DateTime.ParseExact(json.Upload_date, "yyyyMMdd", null);
+                    }
+                    else
+                    {
+                        date = DateTimeOffset.FromUnixTimeSeconds(json.Epoch ?? new long()).DateTime;
+                    }
+                }
+                catch { }
+            }
+
+            if (!string.IsNullOrEmpty(json.Title))
+            {
+                result.Item.Name = json.Title.Trim();
+            }
+
+            if (!string.IsNullOrEmpty(json.Description))
+            {
+                result.Item.Overview = json.Description.Trim();
+            }
+
             result.Item.ProductionYear = date.Year;
             result.Item.PremiereDate = date;
-            result.AddPerson(CreatePerson(json.Uploader.Trim(), json.Channel_id));
+            if (null != json.Uploader && null != json.Channel_id)
+            {
+                result.AddPerson(CreatePerson(json.Uploader.Trim(), json.Channel_id));
+            }
             result.Item.IndexNumber = int.Parse("1" + date.ToString("MMdd"));
             result.Item.ParentIndexNumber = int.Parse(date.ToString("yyyyMM"));
             result.Item.ProviderIds.Add(Constants.PLUGIN_NAME, json.Id);
