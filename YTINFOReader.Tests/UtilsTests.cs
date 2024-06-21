@@ -141,7 +141,7 @@ namespace YTINFOReader.Tests
             Assert.Equal("Rick Astley", result.People[0].Name);
             Assert.Equal("UCuAXFkgsw1L7xaCfnd5JJOw", result.People[0].ProviderIds[Constants.PLUGIN_NAME]);
             Assert.Equal(110252511, result.Item.IndexNumber);
-            Assert.Equal(200910, result.Item.ParentIndexNumber);
+            Assert.Equal(2009, result.Item.ParentIndexNumber);
             Assert.Equal("dQw4w9WgXcQ", result.Item.ProviderIds[Constants.PLUGIN_NAME]);
         }
         [Fact]
