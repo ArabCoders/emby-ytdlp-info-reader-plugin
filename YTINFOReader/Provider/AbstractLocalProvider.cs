@@ -47,12 +47,21 @@ namespace YTINFOReader.Provider
         /// <returns></returns>
         public virtual bool HasChanged(BaseItem item, LibraryOptions LibraryOptions, IDirectoryService directoryService)
         {
-            _logger.Debug($"YIR HasChanged: {item.Name}");
-            var infoJson = GetInfoJson(item.Path);
-            var result = infoJson.Exists && infoJson.LastWriteTimeUtc.ToUniversalTime() > item.DateLastSaved.ToUniversalTime();
-            string status = result ? "Changed" : "Not changed";
-            _logger.Debug($"YIR HasChanged Result: {status}");
-            return result;
+            var fileInfo = directoryService.GetFile(item.Path);
+
+            if (!fileInfo.Exists)
+            {
+                _logger.Error($"YIR '{item.Path}' does not exist.");
+                return true;
+            }
+
+            if (fileInfo.LastWriteTimeUtc.ToUniversalTime() > item.DateLastSaved.ToUniversalTime())
+            {
+                _logger.Info($"YIR '{item.Path}' has changed.");
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>

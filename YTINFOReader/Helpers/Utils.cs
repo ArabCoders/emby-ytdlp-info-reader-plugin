@@ -235,6 +235,14 @@ namespace YTINFOReader.Helpers
 
             result.Item.ProductionYear = date.Year;
             result.Item.PremiereDate = date;
+            try
+            {
+                result.Item.SortName = date.ToString("yyyyMMdd") + "-" + result.Item.Name;
+            }
+            catch
+            {
+            }
+
             if (null != json.Uploader && null != json.Channel_id)
             {
                 result.AddPerson(CreatePerson(json.Uploader.Trim(), json.Channel_id));
@@ -243,16 +251,15 @@ namespace YTINFOReader.Helpers
             result.Item.ParentIndexNumber = int.Parse(date.ToString("yyyy"));
             result.Item.ProviderIds.Add(Constants.PLUGIN_NAME, json.Id);
 
-            if (json.Epoch != null)
+            if (null != json.Epoch)
             {
-                Logger?.Debug($"Using epoch for episode index number for {json.Id} {json.Title}.");
                 result.Item.IndexNumber = int.Parse("1" + date.ToString("MMdd") + DateTimeOffset.FromUnixTimeSeconds(json.Epoch ?? new long()).ToString("mmss"));
             }
 
-            if (json.Epoch == null && json.File_path != null)
+            if (null == json.Epoch && null != json.File_path)
             {
-                Logger?.Debug($"Using file last write time for episode index number for {json.Id} {json.Title}.");
-                result.Item.IndexNumber = int.Parse("1" + date.ToString("MMdd") + json.File_path.LastWriteTimeUtc.ToString("mmss"));
+                Logger?.Warn($"Using file last write time for episode index number for {json.Id} {json.Title}.");
+                result.Item.IndexNumber = int.Parse("1" + date.ToString("MMdd") + json.File_path.CreationTimeUtc.ToString("mmss"));
             }
 
             if (json.File_path == null && json.Epoch == null)
@@ -260,8 +267,17 @@ namespace YTINFOReader.Helpers
                 Logger?.Error($"No file or epoch data found for {json.Id} {json.Title}.");
             }
 
+            if (!result.Item.IndexNumber.HasValue)
+            {
+                Logger?.Error($"{json.File_path?.FullName} No index number found for '{json.Id}' - '{json.Title}'.");
+                return new MetadataResult<Episode> { HasMetadata = false };
+            }
+
+            Logger?.Info($"'{json.File_path?.FullName}' Matched '{json.Id}' - '{json.Title}' to 'S{result.Item.ParentIndexNumber}E{result.Item.IndexNumber}'.");
+
             return result;
         }
+
         /// <summary>
         /// Provides a Series Metadata Result from a json object.
         /// </summary>
