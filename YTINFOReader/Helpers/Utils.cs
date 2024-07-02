@@ -144,7 +144,7 @@ namespace YTINFOReader.Helpers
             cancellationToken?.ThrowIfCancellationRequested();
             string jsonString = File.ReadAllText(fpath);
             YTDLData data = JsonSerializer.Deserialize<YTDLData>(jsonString, JSON_OPTS);
-            data.Path = path.ToString();
+            data.Path = path.FullName;
             return data;
         }
 
@@ -293,7 +293,7 @@ namespace YTINFOReader.Helpers
                 return new MetadataResult<Episode> { HasMetadata = false };
             }
 
-            Logger?.Info($"'{name}' Matched '{json.Id}' - '{json.Title}' to 'S{result.Item.ParentIndexNumber}E{result.Item.IndexNumber}'.");
+            Logger?.Info($"'{name}' '{json.Path}' Matched '{json.Id}' - '{json.Title}' to 'S{result.Item.ParentIndexNumber}E{result.Item.IndexNumber}'.");
 
             return result;
         }
