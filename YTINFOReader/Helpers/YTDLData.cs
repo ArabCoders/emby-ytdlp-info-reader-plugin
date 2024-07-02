@@ -24,7 +24,7 @@ namespace YTINFOReader.Helpers
 #nullable enable
         [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
         public long? Epoch { get; set; }
-        public FileSystemMetadata? File_path { get; set; }
+        public string? Path { get; set; }
 #nullable disable
         public List<ThumbnailInfo> Thumbnails { get; set; }
         public override string ToString()
