@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using YTINFOReader.Helpers;
 using MediaBrowser.Model.Configuration;
+using MediaBrowser.Controller.Entities.TV;
 
 namespace YTINFOReader.Provider
 {
@@ -30,7 +31,7 @@ namespace YTINFOReader.Provider
 
         protected FileSystemMetadata GetInfoJson(string path)
         {
-            _logger.Debug($"YIR GetInfoJson: {path}");
+            _logger.Debug($"{Name}.GetInfoJson: '{path}'.");
             var fileInfo = _fileSystem.GetFileSystemInfo(path);
             var directoryInfo = fileInfo.IsDirectory ? fileInfo : _fileSystem.GetDirectoryInfo(Path.GetDirectoryName(path));
             var directoryPath = directoryInfo.FullName;
@@ -43,21 +44,38 @@ namespace YTINFOReader.Provider
         /// Returns bolean if item has changed since last recorded.
         /// </summary>
         /// <param name="item"></param>
+        /// <param name="LibraryOptions"></param>
         /// <param name="directoryService"></param>
         /// <returns></returns>
         public virtual bool HasChanged(BaseItem item, LibraryOptions LibraryOptions, IDirectoryService directoryService)
         {
-            var fileInfo = directoryService.GetFile(item.Path);
+            _logger.Debug($"{Name}.HasChanged: Checkinf if '{item.Path}' has updated info since last save.");
+
+            FileSystemMetadata fileInfo;
+
+            if (item is Series or Season)
+            {
+                var stringFile = Utils.GetSeriesInfo(item.Path);
+                if (string.IsNullOrEmpty(stringFile))
+                {
+                    return true;
+                }
+                fileInfo = directoryService.GetFile(stringFile);
+            }
+            else
+            {
+                fileInfo = directoryService.GetFile(item.Path);
+            }
 
             if (!fileInfo.Exists)
             {
-                _logger.Error($"YIR '{item.Path}' does not exist.");
+                _logger.Error($"{Name}.HasChanged: '{item.Path}' does not exist.");
                 return true;
             }
 
             if (fileInfo.LastWriteTimeUtc.ToUniversalTime() > item.DateLastSaved.ToUniversalTime())
             {
-                _logger.Info($"YIR '{item.Path}' has changed.");
+                _logger.Info($"{Name}.HasChanged: '{item.Path}' has changed.");
                 return true;
             }
 
@@ -73,15 +91,16 @@ namespace YTINFOReader.Provider
         /// <returns></returns>
         public virtual Task<MetadataResult<T>> GetMetadata(ItemInfo info, LibraryOptions LibraryOptions, IDirectoryService directoryService, CancellationToken cancellationToken)
         {
-            _logger.Debug($"YIR GetMetadata: {info.Path}");
+            _logger.Debug($"${Name}.GetMetadata: {info.Path}");
+
             var result = new MetadataResult<T>();
-            var infoFile = Path.ChangeExtension(info.Path, "info.json");
-            if (!File.Exists(infoFile))
+            var metaFile = Path.ChangeExtension(info.Path, "info.json");
+            if (!File.Exists(metaFile))
             {
                 return Task.FromResult(result);
             }
-            var jsonObj = Utils.ReadYTDLInfo(infoFile, directoryService.GetFile(info.Path), cancellationToken);
-            _logger.Debug($"YIR GetMetadata Result: {jsonObj}");
+            var jsonObj = Utils.ReadYTDLInfo(info.Path, metaFile, cancellationToken);
+            _logger.Debug($"${Name}.GetMetadata: final result '{jsonObj}'.");
             result = GetMetadataImpl(jsonObj);
 
             return Task.FromResult(result);

@@ -4,7 +4,6 @@ using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Entities.TV;
 using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
-using MediaBrowser.Model.IO;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,6 +14,7 @@ using System.Threading;
 using MediaBrowser.Model.Logging;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.FileSystemGlobbing;
 
 namespace YTINFOReader.Helpers
 {
@@ -45,31 +45,34 @@ namespace YTINFOReader.Helpers
             NumberHandling = JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString
         };
 
-        public static bool IsFresh(FileSystemMetadata fileInfo)
-        {
-            return fileInfo.Exists && DateTime.UtcNow.Subtract(fileInfo.LastWriteTimeUtc.UtcDateTime).Days <= 10;
-        }
-
+        /// <summary>
+        /// Returns a 4-digit integer based on the SHA-256 hash of the basename.
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        /// <remarks>
+        /// This method is used to generate a unique 4-digit integer for the episode index number.
+        /// The method takes the basename of the file path, removes the extension, and converts it to lowercase.
+        /// It then hashes the basename using SHA-256, converts the hash to a hexadecimal string, and then to ASCII values.
+        /// The final 4 digits are then extracted and converted to an integer.
+        /// If the ASCII string is less than 4 digits, it is padded with '9' characters.
+        /// If the ASCII string is more than 4 digits, the first 4 digits are used.
+        /// The method is deterministic and will always return the same 4-digit integer for the same basename.
+        /// The method is case-insensitive and will return the same 4-digit integer for the same basename regardless of case.
+        /// The method is designed to be unique for different basenames, but collisions are possible.
+        /// The extended id is mainly used to differentiate between episodes with the same index number.
+        /// </remarks>
         public static int ExtendId(string path)
         {
-            // 1. Get the basename, remove the extension, and convert to lowercase
             string basename = Path.GetFileNameWithoutExtension(path).ToLower();
-
-            // 2. Hash the basename using SHA-256
             using SHA256 sha256 = SHA256.Create();
             byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(basename));
-
-            // 3. Convert the SHA-256 hash to a hexadecimal string
             string hex = BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
-
-            // 4. Convert hexadecimal characters to ASCII values
             StringBuilder asciiValues = new StringBuilder();
             foreach (char c in hex)
             {
                 asciiValues.Append(((int)c).ToString());
             }
-
-            // 5. Get the final 4 digits, ensure it's a 4-digit integer
             string asciiString = asciiValues.ToString();
             string fourDigitString = asciiString.Length >= 4 ? asciiString.Substring(0, 4) : asciiString.PadRight(4, '9');
             int fourDigitNumber = int.Parse(fourDigitString);
@@ -78,10 +81,19 @@ namespace YTINFOReader.Helpers
         }
 
         /// <summary>
-        ///  Returns the Youtube ID from the file path. Matches last 11 character field inside square brackets.
+        /// Returns the Youtube ID from the file path.
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
+        /// <remarks>
+        /// This method is used to extract the Youtube ID from the file path.
+        /// The method first checks if the file path matches the channel ID regex.
+        /// If the file path matches the channel ID regex, the method extracts the channel ID.
+        /// If the file path matches the playlist ID regex, the method extracts the playlist ID.
+        /// If the file path matches the video ID regex, the method extracts the video ID.
+        /// If the file path does not match any regex, the method returns an empty string.
+        /// The method is case-insensitive and will return the Youtube ID regardless of case.
+        /// </remarks>
         public static string GetYTID(string name)
         {
             if (RX_C.IsMatch(name))
@@ -103,10 +115,12 @@ namespace YTINFOReader.Helpers
             }
             return "";
         }
+        
         public static bool IsYouTubeContent(string name)
         {
             return GetYTID(name) != "";
         }
+
         /// <summary>
         /// Creates a person object of type director for the provided name.
         /// </summary>
@@ -122,6 +136,7 @@ namespace YTINFOReader.Helpers
                 ProviderIds = new ProviderIdDictionary(new Dictionary<string, string> { { Constants.PLUGIN_NAME, channel_id } }),
             };
         }
+
         /// <summary>
         /// Returns path to where metadata json file should be.
         /// </summary>
@@ -133,18 +148,19 @@ namespace YTINFOReader.Helpers
             var dataPath = Path.Combine(appPaths.CachePath, Constants.PLUGIN_NAME, youtubeID);
             return Path.Combine(dataPath, "ytvideo.info.json");
         }
+
         /// <summary>
         /// Reads JSON data from file.
         /// </summary>
+        /// <param name="path"></param>
         /// <param name="metaFile"></param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public static YTDLData ReadYTDLInfo(string fpath, FileSystemMetadata path, CancellationToken? cancellationToken = null)
+        public static YTDLData ReadYTDLInfo(string path, string metaFile, CancellationToken? cancellationToken = null)
         {
             cancellationToken?.ThrowIfCancellationRequested();
-            string jsonString = File.ReadAllText(fpath);
-            YTDLData data = JsonSerializer.Deserialize<YTDLData>(jsonString, JSON_OPTS);
-            data.Path = path.FullName;
+            YTDLData data = JsonSerializer.Deserialize<YTDLData>(File.ReadAllText(metaFile), JSON_OPTS);
+            data.Path = path;
             return data;
         }
 
@@ -176,6 +192,7 @@ namespace YTINFOReader.Helpers
 
             return result;
         }
+        
         /// <summary>
         /// Provides a MusicVideo Metadata Result from a json object.
         /// </summary>
@@ -215,6 +232,7 @@ namespace YTINFOReader.Helpers
 
             return result;
         }
+
         /// <summary>
         /// Provides a Episode Metadata Result from a json object.
         /// </summary>
@@ -223,7 +241,7 @@ namespace YTINFOReader.Helpers
         /// <returns></returns>
         public static MetadataResult<Episode> YTDLJsonToEpisode(YTDLData json, string name = "")
         {
-            Logger?.Debug($"{name} Processing: '{json}'.");
+            Logger?.Debug($"{name}.YTDLJsonToEpisode: Processing '{json}'.");
 
             var item = new Episode();
             var result = new MetadataResult<Episode>
@@ -234,7 +252,7 @@ namespace YTINFOReader.Helpers
 
             if (null == json.Upload_date)
             {
-                Logger?.Warn($"{name}: No upload date found for '{json.Id}' - '{json.Title}'. This most likely indicates the info.json file is corrupted. or was downloading when the video was deleted.");
+                Logger?.Warn($"{name}.YTDLJsonToEpisode: No upload date found for '{json.Id}' - '{json.Title}'. This most likely indicates the info.json file is corrupted. or was downloading when the video was deleted.");
             }
 
             var date = new DateTime(1970, 1, 1);
@@ -289,11 +307,11 @@ namespace YTINFOReader.Helpers
 
             if (!result.Item.IndexNumber.HasValue)
             {
-                Logger?.Error($"{name} No index number found for '{json.Id}' - '{json.Title}'.");
+                Logger?.Error($"{name}.YTDLJsonToEpisode: No index number found for '{json.Id}' - '{json.Title}'.");
                 return new MetadataResult<Episode> { HasMetadata = false };
             }
 
-            Logger?.Info($"'{name}' '{json.Path}' Matched '{json.Id}' - '{json.Title}' to 'S{result.Item.ParentIndexNumber}E{result.Item.IndexNumber}'.");
+            Logger?.Info($"{name}.YTDLJsonToEpisode: Matched '{json.Id}' - '{json.Title}' to 'S{result.Item.ParentIndexNumber}E{result.Item.IndexNumber}'.");
 
             return result;
         }
@@ -333,6 +351,36 @@ namespace YTINFOReader.Helpers
 
             result.Item.ProviderIds.Add(Constants.PLUGIN_NAME, identifier);
             return result;
+        }
+
+        /// <summary>
+        /// Returns the path to the series info.json file.
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        public static string GetSeriesInfo(string path)
+        {
+            // -- check if the path is a directory
+            if (!Directory.Exists(path))
+            {
+                return "";
+            }
+
+            Matcher matcher = new();
+            matcher.AddInclude("*.info.json");
+
+            string infoPath = "";
+
+            foreach (string file in matcher.GetResultsInFullPath(path))
+            {
+                if (RX_C.IsMatch(file) || RX_P.IsMatch(file))
+                {
+                    infoPath = file;
+                    break;
+                }
+            }
+
+            return infoPath;
         }
     }
 }

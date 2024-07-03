@@ -45,15 +45,16 @@ namespace YTINFOReader.Provider
         {
             var list = new List<LocalImageInfo>(1);
 
-            _logger.Debug($"YIR Image GetImages: {item.Name}");
+            _logger.Debug($"{Name}.GetImages: Check if there is an image for '{item.Name}'.");
 
-            var imageFile = "";
 
             if (string.IsNullOrEmpty(item.Path))
             {
-                _logger.Debug($"YIR Image GetImages: {item.Name} - No path exists.");
+                _logger.Debug($"{Name}.GetImages: {item.Name} - No path exists.");
                 return list;
             }
+            
+            var imageFile = "";
 
             if (item is Series)
             {
@@ -82,7 +83,7 @@ namespace YTINFOReader.Provider
 
             if (string.IsNullOrEmpty(imageFile))
             {
-                _logger.Debug($"YIR Image GetImages: {item.Name} - No image found for {item.Path}");
+                _logger.Debug($"{Name}.GetImages: No image found for '{item.Name}'.");
                 return list;
             }
 

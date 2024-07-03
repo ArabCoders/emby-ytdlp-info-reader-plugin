@@ -12,7 +12,7 @@ namespace YTINFOReader.Provider
         public override string Name => Constants.PLUGIN_NAME;
         internal override MetadataResult<Episode> GetMetadataImpl(YTDLData jsonObj)
         {
-            return Utils.YTDLJsonToEpisode(jsonObj);
+            return Utils.YTDLJsonToEpisode(jsonObj, Name);
         }
     }
 }

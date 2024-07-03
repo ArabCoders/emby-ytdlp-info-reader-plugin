@@ -29,7 +29,7 @@ namespace YTINFOReader.Tests
 
             Assert.Equal(expected, result);
         }
-        
+
         [Theory]
         [InlineData("Foo", "")]
         [InlineData("ChannelName Videos [UCuAXFkgsw1L7xaCfnd5JJOw].info.json", "UCuAXFkgsw1L7xaCfnd5JJOw")]
@@ -138,7 +138,7 @@ namespace YTINFOReader.Tests
         [Fact]
         public void YTDLJsonToEpisodeTest()
         {
-            var result = Utils.YTDLJsonToEpisode(GetYouTubeVideoData());
+            var result = Utils.YTDLJsonToEpisode(GetYouTubeVideoData(), "YTDLJsonToEpisodeTest");
             Assert.True(result.HasMetadata);
             Assert.Equal("Never Gonna Give You Up", result.Item.Name);
             Assert.Equal("The official video for “Never Gonna Give You Up” by Rick Astley", result.Item.Overview);

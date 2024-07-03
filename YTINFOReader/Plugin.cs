@@ -15,7 +15,7 @@ namespace YTINFOReader
         public Plugin(ILogManager logManager)
         {
             _logger = logManager.GetLogger(Name);
-            _logger.Info("Loaded Daily Extender Plugin.");
+            _logger.Info("YTINFOReader plugin is loaded.");
         }
     }
 }
